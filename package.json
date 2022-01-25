@@ -24,6 +24,6 @@
   },
   "scripts": {
     "pm2": "NODE_ENV=production pm2 start dist/index.js --watch -i max",
-    "build": "yarn rimraf dist && yarn tsc"
+    "build": "yarn rimraf dist && yarn tsc --skipLibCheck"
   }
 }
