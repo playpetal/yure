@@ -1,8 +1,7 @@
 require("dotenv").config();
 import ffmpeg from "fluent-ffmpeg";
 import express from "express";
-import { S3 } from "./lib/S3";
-import { PassThrough } from "stream";
+import { Writable } from "stream";
 import hashids from "hashids";
 
 if (
@@ -15,8 +14,19 @@ if (
 const hash = new hashids(process.env.SALT || "NO_SALT_SPECIFIED");
 let count = 0;
 
-async function run(start: number, duration: number, song: string) {
-  const pass = new PassThrough();
+async function run(
+  start: number,
+  duration: number,
+  song: string
+): Promise<Buffer> {
+  const buffers: Buffer[] = [];
+
+  const writable = new Writable({
+    write(chunk, _encoding, callback) {
+      buffers.push(chunk);
+      callback();
+    },
+  });
 
   const num = count + Date.now();
   count++;
@@ -50,23 +60,15 @@ async function run(start: number, duration: number, song: string) {
       console.log(a);
       throw new Error("An unexpected error occurred.");
     })
-    .pipe(pass);
+    .pipe(writable);
 
-  const params: AWS.S3.PutObjectRequest = {
-    Bucket: "petal",
-    Key: `gts/${id}.mp4`,
-    Body: pass,
-    ContentType: "video/mp4",
-    ACL: "public-read",
-  };
-
-  const url: string = await new Promise((res, reject) => {
-    S3.upload(params, (err, data) => {
-      if (err) reject(err);
-      res(data.Location);
+  const buf: Buffer = await new Promise((res, rej) => {
+    writable.on("close", () => {
+      res(Buffer.concat(buffers));
     });
   });
-  return url;
+
+  return buf;
 }
 
 const app = express();
@@ -105,8 +107,8 @@ app.get("/song", async (req, res) => {
   const start = Math.floor(Math.random() * (max + 1));
 
   try {
-    const url = await run(start, 10, song);
-    return res.status(200).json({ url });
+    const buffer = await run(start, 10, song);
+    return res.status(200).json({ video: buffer.toString("base64") });
   } catch (e) {
     return res
       .status(500)
