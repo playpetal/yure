@@ -20,8 +20,6 @@ export async function generateVideo(audio: string, bg: string, seek: number) {
     audio,
     "-filter_complex",
     "[0:a]volume=0.1[vol];[vol]afade=t=in:st=0:d=1[fadein];[fadein]afade=t=out:st=9:d=1",
-    "-itsscale",
-    "5",
     "-i",
     bg,
     "-c:v",
