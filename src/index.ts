@@ -1,75 +1,8 @@
 require("dotenv").config();
 import ffmpeg from "fluent-ffmpeg";
 import express from "express";
-import { Writable } from "stream";
-import hashids from "hashids";
-
-if (
-  !process.env.S3_ENDPOINT ||
-  !process.env.S3_ACCESS_KEY ||
-  !process.env.S3_SECRET_KEY
-)
-  throw new Error("Invalid S3 credentials");
-
-const hash = new hashids(process.env.SALT || "NO_SALT_SPECIFIED");
-let count = 0;
-
-async function run(
-  start: number,
-  duration: number,
-  song: string
-): Promise<Buffer> {
-  const buffers: Buffer[] = [];
-
-  const writable = new Writable({
-    write(chunk, _encoding, callback) {
-      buffers.push(chunk);
-      callback();
-    },
-  });
-
-  const num = count + Date.now();
-  count++;
-
-  const id = hash.encode(num);
-
-  ffmpeg("./src/assets/bg.png")
-    .inputOptions(["-loop 1"])
-    .input(song)
-    .setStartTime(start)
-    .setDuration(duration)
-    .outputOptions([
-      "-c:v libx264",
-      "-tune stillimage",
-      "-c:a aac",
-      "-b:a 192k",
-      "-pix_fmt yuv420p",
-      "-shortest",
-      "-f mp4",
-      "-movflags frag_keyframe+empty_moov",
-    ])
-    .audioFilters([
-      { filter: "volume", options: { volume: "0.1" } },
-      { filter: "afade", options: `t=in:st=0:d=${duration / 10}` },
-      {
-        filter: "afade",
-        options: `t=out:st=${duration - duration / 10}:d=${duration / 10}`,
-      },
-    ])
-    .on("error", (...a) => {
-      console.log(a);
-      throw new Error("An unexpected error occurred.");
-    })
-    .pipe(writable);
-
-  const buf: Buffer = await new Promise((res, rej) => {
-    writable.on("close", () => {
-      res(Buffer.concat(buffers));
-    });
-  });
-
-  return buf;
-}
+import { requestSong } from "./lib/cache";
+import { generateVideo } from "./lib/generate";
 
 const app = express();
 app.use(express.json());
@@ -84,13 +17,12 @@ app.get("/song", async (req, res) => {
     return res.status(400).json({ error: "id must be a number" });
   }
 
-  const song = `https://cdn.playpetal.com/songs/${id}.m4a`;
-
+  const path = await requestSong(id);
   let duration: number;
 
   try {
     duration = await new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(song, async (error, data) => {
+      ffmpeg.ffprobe(path, async (error, data) => {
         if (error) reject(error);
         resolve(parseInt(data.streams[0].duration!));
       });
@@ -103,11 +35,10 @@ app.get("/song", async (req, res) => {
   }
 
   const max = Math.floor(duration - 10);
-
   const start = Math.floor(Math.random() * (max + 1));
 
   try {
-    const buffer = await run(start, 10, song);
+    const buffer = await generateVideo(path, "./src/assets/bg.mp4", start);
     return res.status(200).json({ video: buffer.toString("base64") });
   } catch (e) {
     return res
