@@ -4,6 +4,9 @@ FROM node:14.17.6-alpine
 ARG FFMPEG_VERSION=4.4
 ARG MAKEFLAGS="-j4"
 
+RUN apk add --update python3 && ln -sf python3 /usr/bin/python
+RUN python3 -m ensurepip
+
 # FFmpeg build dependencies.
 RUN apk add --update \
   build-base \

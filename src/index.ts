@@ -3,6 +3,7 @@ import ffmpeg from "fluent-ffmpeg";
 import express from "express";
 import { requestSong } from "./lib/cache";
 import { generateVideo } from "./lib/generate";
+import { uploadVideo } from "./lib/upload";
 
 const app = express();
 app.use(express.json());
@@ -45,6 +46,30 @@ app.get("/song", async (req, res) => {
       .status(500)
       .json({ error: "An error occurred while processing the song." });
   }
+});
+
+app.post("/upload", async (req, res) => {
+  const { url, id } = req.body as { url: unknown; id: unknown };
+
+  if (typeof url !== "string")
+    return res.status(400).json({ error: "'url' must be a string", url: null });
+
+  try {
+    new URL(url);
+  } catch (e) {
+    return res
+      .status(400)
+      .json({ error: "'url' must be a valid url", url: null });
+  }
+
+  if (typeof id !== "number" || !Number.isInteger(id))
+    return res
+      .status(400)
+      .json({ error: "'id' must be an integer", url: null });
+
+  const location = await uploadVideo(url, id);
+
+  return res.status(200).send({ error: null, url: location });
 });
 
 app.listen(3000);
