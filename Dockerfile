@@ -10,20 +10,11 @@ RUN apk add --update \
   coreutils \
   freetype-dev \
   gcc \
-  lame-dev \
-  libogg-dev \
-  libass \
-  libass-dev \
-  libvpx-dev \
-  libvorbis-dev \
-  libwebp-dev \
-  libtheora-dev \
   opus-dev \
   openssl \
   openssl-dev \
   pkgconf \
   pkgconfig \
-  rtmpdump-dev \
   wget \
   x264-dev \
   x265-dev \
@@ -45,17 +36,10 @@ RUN cd /tmp/ffmpeg-${FFMPEG_VERSION} && \
   --enable-gpl \
   --enable-nonfree \
   --enable-small \
-  --enable-libmp3lame \
   --enable-libx264 \
   --enable-libx265 \
-  --enable-libvpx \
-  --enable-libtheora \
-  --enable-libvorbis \
   --enable-libopus \
   --enable-libfdk-aac \
-  --enable-libass \
-  --enable-libwebp \
-  --enable-librtmp \
   --enable-postproc \
   --enable-libfreetype \
   --enable-openssl \
